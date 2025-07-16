@@ -9,6 +9,7 @@ import os
 import subprocess
 import math
 from datetime import datetime
+import re
 
 # Bot configuration
 PREFIX = '!'
@@ -56,6 +57,17 @@ def get_audio_bitrate(target_size_bytes, duration_seconds):
     return max(32, math.floor(bitrate * 0.95))
 
 
+def remove_invalid_filename_chars(input_string, replacement=''):
+    # Define a regular expression pattern for invalid filename characters
+    # This includes: \ / : * ? " < > | and control characters
+    invalid_chars_pattern = r'[\\/:*?"<>|\x00-\x1F]'
+
+    # Replace invalid characters with the specified replacement
+    cleaned_string = re.sub(invalid_chars_pattern, replacement, input_string)
+
+    return cleaned_string
+
+
 async def download_youtube_audio(url):
     """Download audio from YouTube using yt-dlp"""
     ydl_opts = {
@@ -78,6 +90,7 @@ async def download_youtube_audio(url):
         filename = info.get('title', 'Unknown Title')
         base1, _ = os.path.splitext(original_filename)
         base2, _ = os.path.splitext(filename)
+        base2 = remove_invalid_filename_chars(base2)
         os.rename(f"{base1}.mp3", f"{base2}.mp3")
         audio_filename = f"{base2}.mp3"
 
@@ -100,12 +113,12 @@ def compress_audio(input_file, output_file, bitrate):
 async def yt_audio(ctx, url):
     # Check if the URL is valid
     if 'youtube.com' not in url and 'youtu.be' not in url:
-        await ctx.send("Please provide a valid YouTube URL.")
+        await ctx.send(":x: Please provide a valid YouTube URL.")
         return
 
     try:
         # Send initial message
-        msg = await ctx.send("Downloading audio from YouTube...")
+        msg = await ctx.send(":jigsaw: Downloading audio from YouTube...")
 
         # Download the audio
         audio_file, duration = await download_youtube_audio(url)
@@ -114,15 +127,15 @@ async def yt_audio(ctx, url):
         original_size = os.path.getsize(audio_file)
 
         if original_size <= MAX_FILE_SIZE:
-            await msg.edit(content="Uploading audio...")
+            await msg.edit(content=":jigsaw: Uploading audio...")
             #await ctx.send(f"{audio_file} gooon")
             await ctx.send(file=discord.File(audio_file))
         else:
             if duration == 0:
-                await ctx.send("Could not determine audio duration. Cannot calculate required compression.")
+                await ctx.send(":x: Could not determine audio duration. Cannot calculate required compression.")
                 return
 
-            await msg.edit(content="Compressing audio to fit Discord's 8MB limit...")
+            await msg.edit(content=":jigsaw: Compressing audio to fit Discord's 8MB limit...")
 
             # Calculate required bitrate
             bitrate = get_audio_bitrate(MAX_FILE_SIZE, duration)
@@ -143,7 +156,7 @@ async def yt_audio(ctx, url):
         await msg.delete()
 
     except Exception as e:
-        await ctx.send(f"An error occurred: {str(e)}")
+        await ctx.send(f":x: An error occurred: {str(e)}")
         # Clean up any remaining files
         for f in [audio_file, f"compressed_{audio_file}"]:
             if os.path.exists(f):
